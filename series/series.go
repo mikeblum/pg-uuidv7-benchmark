@@ -22,19 +22,27 @@ type Series struct {
 	timestamps []pgtype.Timestamp
 }
 
+type UUID struct {
+	ID      pgtype.UUID
+	Version byte
+	Insert  time.Duration
+	Lookup  time.Duration
+}
+
 func (s *Series) GenerateSeries() error {
 	var err error
 	if s.timestamps, err = s.Query.GenerateSeries(context.Background()); err != nil {
 		s.Logger.Error("Error generating series", attrError, err)
 		return err
 	}
+	s.Logger.Info("GenerateSeries", "series #", len(s.timestamps))
 	return err
 }
 
-func (s *Series) InsertUUIDv4Bulk() (chan pgtype.UUID, error) {
+func (s *Series) InsertUUIDv4Bulk() (chan UUID, error) {
 	var err error
 	batch := make([]dbms.InsertUUIDv4BulkParams, len(s.timestamps))
-	out := make(chan pgtype.UUID, len(batch))
+	out := make(chan UUID, len(batch))
 	for i, ts := range s.timestamps {
 		var idv4 uuid.UUID
 		if idv4, err = uuid.NewV4(); err != nil {
@@ -55,8 +63,13 @@ func (s *Series) InsertUUIDv4Bulk() (chan pgtype.UUID, error) {
 			s.Logger.Error("InsertUUIDv4Bulk", "uuid", UUIDString(id), "err", err)
 			return
 		}
-		out <- id
-		s.Logger.Info("InsertUUIDv4Bulk", "uuid", UUIDString(id), "version", uuid.V4, "time", time.Since(start))
+		end := time.Since(start)
+		out <- UUID{
+			ID:      id,
+			Version: uuid.V4,
+			Insert:  end,
+		}
+		s.Logger.Info("InsertUUIDv4Bulk", "uuid", UUIDString(id), "version", uuid.V4, "time", end)
 		start = time.Now()
 		if i >= len(batch)-1 {
 			close(out)
@@ -65,21 +78,22 @@ func (s *Series) InsertUUIDv4Bulk() (chan pgtype.UUID, error) {
 	return out, err
 }
 
-func (s *Series) GetUUIDv4(id pgtype.UUID) error {
+func (s *Series) GetUUIDv4(id pgtype.UUID) (time.Duration, error) {
 	var err error
 	start := time.Now()
 	if _, err = s.Query.GetUUIDv4(context.Background(), id); err != nil {
 		s.Logger.Error("GetUUIDv4", "uuid", UUIDString(id), "err", err)
-		return err
+		return 0, err
 	}
-	s.Logger.Info("GetUUIDv4", "uuid", UUIDString(id), "version", uuid.V4, "time", time.Since(start))
-	return err
+	end := time.Since(start)
+	s.Logger.Info("GetUUIDv4", "uuid", UUIDString(id), "version", uuid.V4, "time", end)
+	return end, err
 }
 
-func (s *Series) InsertUUIDv7Bulk() (chan pgtype.UUID, error) {
+func (s *Series) InsertUUIDv7Bulk() (chan UUID, error) {
 	var err error
 	batch := make([]dbms.InsertUUIDv7BulkParams, len(s.timestamps))
-	out := make(chan pgtype.UUID, len(batch))
+	out := make(chan UUID, len(batch))
 	for i, ts := range s.timestamps {
 		var idv7 uuid.UUID
 		if idv7, err = uuid.NewV7(); err != nil {
@@ -101,8 +115,12 @@ func (s *Series) InsertUUIDv7Bulk() (chan pgtype.UUID, error) {
 			s.Logger.Error("InsertUUIDv7Bulk", "uuid", UUIDString(id), "err", err)
 			return
 		}
-		out <- id
-		s.Logger.Info("InsertUUIDv7Bulk", "uuid", UUIDString(id), "version", uuid.V7, "time", time.Since(start))
+		end := time.Since(start)
+		out <- UUID{
+			ID:      id,
+			Version: uuid.V7,
+			Insert:  end,
+		}
 		start = time.Now()
 		if i >= len(batch)-1 {
 			close(out)
@@ -111,14 +129,43 @@ func (s *Series) InsertUUIDv7Bulk() (chan pgtype.UUID, error) {
 	return out, err
 }
 
-func (s *Series) GetUUIDv7(id pgtype.UUID) error {
+func (s *Series) GetUUIDv7(id pgtype.UUID) (time.Duration, error) {
 	var err error
 	start := time.Now()
 	if _, err = s.Query.GetUUIDv7(context.Background(), id); err != nil {
 		s.Logger.Error("GetUUIDv7", "uuid", UUIDString(id), "err", err)
-		return err
+		return 0, err
 	}
-	s.Logger.Info("GetUUIDv7", "uuid", UUIDString(id), "version", uuid.V7, "time", time.Since(start))
+	end := time.Since(start)
+	s.Logger.Info("GetUUIDv7", "uuid", UUIDString(id), "version", uuid.V7, "time", end)
+	return end, err
+}
+
+// sqlc doesn't support MERGE queries:
+// https://github.com/sqlc-dev/sqlc/issues/1661
+func (s *Series) MergeUUIDResult(uuid UUID) error {
+	var err error
+	results := s.Query.InsertUUIDResult(context.Background(), []dbms.InsertUUIDResultParams{
+		{
+			ID:      uuid.ID,
+			Version: int16(uuid.Version),
+			InsertDurationMs: pgtype.Int8{
+				Int64: uuid.Insert.Microseconds(),
+				Valid: true,
+			},
+			LookupDurationMs: pgtype.Int8{
+				Int64: uuid.Lookup.Microseconds(),
+				Valid: true,
+			},
+		},
+	})
+	results.QueryRow(func(i int, id pgtype.UUID, err error) {
+		if err != nil {
+			s.Logger.Error("MergeUUIDResult", "uuid", UUIDString(id), "err", err)
+			return
+		}
+	})
+	s.Logger.Info("MergeUUIDResult", "uuid", UUIDString(uuid.ID), "version", uuid.Version, "insert", uuid.Insert, "lookup", uuid.Lookup)
 	return err
 }
 

@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	dbms "github.com/mikeblum/pg-uuidv7/internal/db"
 	"github.com/mikeblum/pg-uuidv7/series"
@@ -48,9 +47,16 @@ func main() {
 	}
 	defer conn.Close(context.Background())
 
+	query := dbms.New(conn)
+
+	if err = truncate(query); err != nil {
+		logger.Error("Error truncating db", attrError, err)
+		os.Exit(1)
+	}
+
 	// UUIDv4
 	var v4 *series.Series = &series.Series{
-		Query:  dbms.New(conn),
+		Query:  query,
 		Logger: logger,
 	}
 	logger.Info("Generating UUIDv4 series...")
@@ -58,23 +64,28 @@ func main() {
 		logger.Error("Error generating UUIDv4 series", attrError, err)
 		os.Exit(1)
 	}
-	var out chan pgtype.UUID
+	var out chan series.UUID
 	if out, err = v4.InsertUUIDv4Bulk(); err != nil {
 		logger.Error("Error generating UUIDv4 series", attrError, err)
 		os.Exit(1)
 	}
 	logger.Info("Waiting for UUIDv4s...")
 	logger.Info("Fetching UUIDv4s...")
-	for id := range out {
-		logger.Info("UUIDv4", "id", series.UUIDString(id))
-		if err = v4.GetUUIDv4(id); err != nil {
-			logger.Error("Error getting UUIDv4", "id", series.UUIDString(id), attrError, err)
+	for uuid := range out {
+		logger.Info("UUIDv4", "id", series.UUIDString(uuid.ID))
+		if uuid.Lookup, err = v4.GetUUIDv4(uuid.ID); err != nil {
+			logger.Error("Error getting UUIDv4", "id", series.UUIDString(uuid.ID), attrError, err)
+			continue
+		}
+		if err = v4.MergeUUIDResult(uuid); err != nil {
+			logger.Error("Error merging UUIDv4 result", attrError, err)
+			continue
 		}
 	}
 
 	// UUIDv7
 	var v7 *series.Series = &series.Series{
-		Query:  dbms.New(conn),
+		Query:  query,
 		Logger: logger,
 	}
 	logger.Info("Generating UUIDv7 series...")
@@ -88,24 +99,42 @@ func main() {
 	}
 	logger.Info("Waiting for UUIDv7s...")
 	logger.Info("Fetching UUIDv7s...")
-	for id := range out {
-		logger.Info("UUIDv7", "id", series.UUIDString(id))
-		if err = v7.GetUUIDv7(id); err != nil {
-			logger.Error("Error getting UUIDv7", "id", series.UUIDString(id), attrError, err)
+	for uuid := range out {
+		logger.Info("UUIDv7", "id", series.UUIDString(uuid.ID))
+		if uuid.Lookup, err = v7.GetUUIDv7(uuid.ID); err != nil {
+			logger.Error("Error getting UUIDv7", "id", series.UUIDString(uuid.ID), attrError, err)
+			continue
+		}
+		if err = v7.MergeUUIDResult(uuid); err != nil {
+			logger.Error("Error merging UUIDv7 result", attrError, err)
+			continue
 		}
 	}
 }
 
 func bootstrap(db *sql.DB) error {
+	goose.SetVerbose(true)
 	goose.SetBaseFS(embedMigrations)
 	var err error
 	if err = goose.SetDialect(migrationsDialect); err != nil {
 		return err
 	}
-	if err = goose.Down(db, migrationsDir); err != nil {
+	if err = goose.Up(db, migrationsDir); err != nil {
 		return err
 	}
-	if err = goose.Up(db, migrationsDir); err != nil {
+
+	return err
+}
+
+func truncate(query *dbms.Queries) error {
+	var err error
+	if err = query.TruncateUUIDv4(context.Background()); err != nil {
+		return err
+	}
+	if err = query.TruncateUUIDv7(context.Background()); err != nil {
+		return err
+	}
+	if err = query.TruncateUUIDResult(context.Background()); err != nil {
 		return err
 	}
 	return err

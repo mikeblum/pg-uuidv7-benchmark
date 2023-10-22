@@ -17,6 +17,64 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
+const insertUUIDResult = `-- name: InsertUUIDResult :batchone
+
+INSERT INTO uuid_result(id, version, insert_duration_ms, lookup_duration_ms)
+VALUES($1, $2, $3, $4)
+RETURNING id
+`
+
+type InsertUUIDResultBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type InsertUUIDResultParams struct {
+	ID               pgtype.UUID
+	Version          int16
+	InsertDurationMs pgtype.Int8
+	LookupDurationMs pgtype.Int8
+}
+
+func (q *Queries) InsertUUIDResult(ctx context.Context, arg []InsertUUIDResultParams) *InsertUUIDResultBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.Version,
+			a.InsertDurationMs,
+			a.LookupDurationMs,
+		}
+		batch.Queue(insertUUIDResult, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &InsertUUIDResultBatchResults{br, len(arg), false}
+}
+
+func (b *InsertUUIDResultBatchResults) QueryRow(f func(int, pgtype.UUID, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var id pgtype.UUID
+		if b.closed {
+			if f != nil {
+				f(t, id, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(&id)
+		if f != nil {
+			f(t, id, err)
+		}
+	}
+}
+
+func (b *InsertUUIDResultBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const insertUUIDv4Bulk = `-- name: InsertUUIDv4Bulk :batchone
 
 INSERT INTO uuid_v4(id, created)

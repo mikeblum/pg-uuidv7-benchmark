@@ -8,6 +8,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type UuidResult struct {
+	ID               pgtype.UUID
+	Version          int16
+	InsertDurationMs pgtype.Int8
+	LookupDurationMs pgtype.Int8
+}
+
 type UuidV4 struct {
 	ID      pgtype.UUID
 	Created pgtype.Timestamp
