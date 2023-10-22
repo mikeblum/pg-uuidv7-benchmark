@@ -17,10 +17,11 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
-const insertUUIDv4Bulk = `-- name: InsertUUIDv4Bulk :batchmany
+const insertUUIDv4Bulk = `-- name: InsertUUIDv4Bulk :batchone
 
 INSERT INTO uuid_v4(id, created)
 VALUES($1, $2)
+RETURNING id
 `
 
 type InsertUUIDv4BulkBatchResults struct {
@@ -32,9 +33,6 @@ type InsertUUIDv4BulkBatchResults struct {
 type InsertUUIDv4BulkParams struct {
 	ID      pgtype.UUID
 	Created pgtype.Timestamp
-}
-
-type InsertUUIDv4BulkRow struct {
 }
 
 func (q *Queries) InsertUUIDv4Bulk(ctx context.Context, arg []InsertUUIDv4BulkParams) *InsertUUIDv4BulkBatchResults {
@@ -50,33 +48,20 @@ func (q *Queries) InsertUUIDv4Bulk(ctx context.Context, arg []InsertUUIDv4BulkPa
 	return &InsertUUIDv4BulkBatchResults{br, len(arg), false}
 }
 
-func (b *InsertUUIDv4BulkBatchResults) Query(f func(int, []InsertUUIDv4BulkRow, error)) {
+func (b *InsertUUIDv4BulkBatchResults) QueryRow(f func(int, pgtype.UUID, error)) {
 	defer b.br.Close()
 	for t := 0; t < b.tot; t++ {
-		var items []InsertUUIDv4BulkRow
+		var id pgtype.UUID
 		if b.closed {
 			if f != nil {
-				f(t, items, ErrBatchAlreadyClosed)
+				f(t, id, ErrBatchAlreadyClosed)
 			}
 			continue
 		}
-		err := func() error {
-			rows, err := b.br.Query()
-			if err != nil {
-				return err
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var i InsertUUIDv4BulkRow
-				if err := rows.Scan(); err != nil {
-					return err
-				}
-				items = append(items, i)
-			}
-			return rows.Err()
-		}()
+		row := b.br.QueryRow()
+		err := row.Scan(&id)
 		if f != nil {
-			f(t, items, err)
+			f(t, id, err)
 		}
 	}
 }
@@ -86,10 +71,11 @@ func (b *InsertUUIDv4BulkBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const insertUUIDv7Bulk = `-- name: InsertUUIDv7Bulk :batchmany
+const insertUUIDv7Bulk = `-- name: InsertUUIDv7Bulk :batchone
 
 INSERT INTO uuid_v7(id, created)
 VALUES($1, $2)
+RETURNING id
 `
 
 type InsertUUIDv7BulkBatchResults struct {
@@ -101,9 +87,6 @@ type InsertUUIDv7BulkBatchResults struct {
 type InsertUUIDv7BulkParams struct {
 	ID      pgtype.UUID
 	Created pgtype.Timestamp
-}
-
-type InsertUUIDv7BulkRow struct {
 }
 
 func (q *Queries) InsertUUIDv7Bulk(ctx context.Context, arg []InsertUUIDv7BulkParams) *InsertUUIDv7BulkBatchResults {
@@ -119,33 +102,20 @@ func (q *Queries) InsertUUIDv7Bulk(ctx context.Context, arg []InsertUUIDv7BulkPa
 	return &InsertUUIDv7BulkBatchResults{br, len(arg), false}
 }
 
-func (b *InsertUUIDv7BulkBatchResults) Query(f func(int, []InsertUUIDv7BulkRow, error)) {
+func (b *InsertUUIDv7BulkBatchResults) QueryRow(f func(int, pgtype.UUID, error)) {
 	defer b.br.Close()
 	for t := 0; t < b.tot; t++ {
-		var items []InsertUUIDv7BulkRow
+		var id pgtype.UUID
 		if b.closed {
 			if f != nil {
-				f(t, items, ErrBatchAlreadyClosed)
+				f(t, id, ErrBatchAlreadyClosed)
 			}
 			continue
 		}
-		err := func() error {
-			rows, err := b.br.Query()
-			if err != nil {
-				return err
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var i InsertUUIDv7BulkRow
-				if err := rows.Scan(); err != nil {
-					return err
-				}
-				items = append(items, i)
-			}
-			return rows.Err()
-		}()
+		row := b.br.QueryRow()
+		err := row.Scan(&id)
 		if f != nil {
-			f(t, items, err)
+			f(t, id, err)
 		}
 	}
 }

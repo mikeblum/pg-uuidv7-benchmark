@@ -9,7 +9,9 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	dbms "github.com/mikeblum/pg-uuidv7/internal/db"
 	"github.com/mikeblum/pg-uuidv7/series"
 	"github.com/pressly/goose/v3"
 )
@@ -38,24 +40,59 @@ func main() {
 		logger.Error("Error bootstrapping schema for Postgres 🐘", attrError, err)
 		os.Exit(1)
 	}
+
 	var conn *pgx.Conn
 	if conn, err = pgx.Connect(context.Background(), os.Getenv(envDatabaseURL)); err != nil {
 		logger.Error("Error connecting to Postgres 🐘", attrError, err)
 		os.Exit(1)
 	}
 	defer conn.Close(context.Background())
-	var s *series.Series
-	if s, err = series.NewWithConn(conn); err != nil {
-		logger.Error("Error generating series", attrError, err)
-		os.Exit(1)
+
+	// UUIDv4
+	var v4 *series.Series = &series.Series{
+		Query:  dbms.New(conn),
+		Logger: logger,
 	}
-	if err = s.InsertUUIDv4Bulk(); err != nil {
+	logger.Info("Generating UUIDv4 series...")
+	if err = v4.GenerateSeries(); err != nil {
 		logger.Error("Error generating UUIDv4 series", attrError, err)
 		os.Exit(1)
 	}
-	if err = s.InsertUUIDv7Bulk(); err != nil {
+	var out chan pgtype.UUID
+	if out, err = v4.InsertUUIDv4Bulk(); err != nil {
+		logger.Error("Error generating UUIDv4 series", attrError, err)
+		os.Exit(1)
+	}
+	logger.Info("Waiting for UUIDv4s...")
+	logger.Info("Fetching UUIDv4s...")
+	for id := range out {
+		logger.Info("UUIDv4", "id", series.UUIDString(id))
+		if err = v4.GetUUIDv4(id); err != nil {
+			logger.Error("Error getting UUIDv4", "id", series.UUIDString(id), attrError, err)
+		}
+	}
+
+	// UUIDv7
+	var v7 *series.Series = &series.Series{
+		Query:  dbms.New(conn),
+		Logger: logger,
+	}
+	logger.Info("Generating UUIDv7 series...")
+	if err = v7.GenerateSeries(); err != nil {
+		logger.Error("Error generating series", attrError, err)
+		os.Exit(1)
+	}
+	if out, err = v7.InsertUUIDv7Bulk(); err != nil {
 		logger.Error("Error generating UUIDv7 series", attrError, err)
 		os.Exit(1)
+	}
+	logger.Info("Waiting for UUIDv7s...")
+	logger.Info("Fetching UUIDv7s...")
+	for id := range out {
+		logger.Info("UUIDv7", "id", series.UUIDString(id))
+		if err = v7.GetUUIDv7(id); err != nil {
+			logger.Error("Error getting UUIDv7", "id", series.UUIDString(id), attrError, err)
+		}
 	}
 }
 

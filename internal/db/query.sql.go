@@ -41,3 +41,25 @@ func (q *Queries) GenerateSeries(ctx context.Context) ([]pgtype.Timestamp, error
 	}
 	return items, nil
 }
+
+const getUUIDv4 = `-- name: GetUUIDv4 :one
+SELECT id, created FROM uuid_v4 WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetUUIDv4(ctx context.Context, id pgtype.UUID) (UuidV4, error) {
+	row := q.db.QueryRow(ctx, getUUIDv4, id)
+	var i UuidV4
+	err := row.Scan(&i.ID, &i.Created)
+	return i, err
+}
+
+const getUUIDv7 = `-- name: GetUUIDv7 :one
+SELECT id, created FROM uuid_v7 WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetUUIDv7(ctx context.Context, id pgtype.UUID) (UuidV7, error) {
+	row := q.db.QueryRow(ctx, getUUIDv7, id)
+	var i UuidV7
+	err := row.Scan(&i.ID, &i.Created)
+	return i, err
+}

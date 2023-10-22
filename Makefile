@@ -18,7 +18,7 @@ help:
 	echo
 	echo "Targets run by default are: `sed -n 's/^all: //p' ./Makefile | sed -e 's/ /, /g' | sed -e 's/\(.*\), /\1, and /'`"
 
-build: install
+build: install clean
 	sqlc generate
 
 ## clean: Cleanup generated artifacts

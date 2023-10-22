@@ -1,12 +1,20 @@
--- name: InsertUUIDv4Bulk :batchmany
+-- name: GetUUIDv4 :one
+SELECT * FROM uuid_v4 WHERE id = $1 LIMIT 1;
+
+-- name: InsertUUIDv4Bulk :batchone
 
 INSERT INTO uuid_v4(id, created)
-VALUES($1, $2);
+VALUES($1, $2)
+RETURNING id;
 
--- name: InsertUUIDv7Bulk :batchmany
+-- name: GetUUIDv7 :one
+SELECT * FROM uuid_v7 WHERE id = $1 LIMIT 1;
+
+-- name: InsertUUIDv7Bulk :batchone
 
 INSERT INTO uuid_v7(id, created)
-VALUES($1, $2);
+VALUES($1, $2)
+RETURNING id;
 
 -- name: GenerateSeries :many
 
