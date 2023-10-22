@@ -12,3 +12,8 @@ type UuidV4 struct {
 	ID      pgtype.UUID
 	Created pgtype.Timestamp
 }
+
+type UuidV7 struct {
+	ID      pgtype.UUID
+	Created pgtype.Timestamp
+}

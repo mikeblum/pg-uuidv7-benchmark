@@ -7,20 +7,37 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const generateUUIDv4 = `-- name: GenerateUUIDv4 :exec
+const generateSeries = `-- name: GenerateSeries :many
 
-INSERT INTO uuid_v4(id, created)
-SELECT gen_random_uuid(), ts FROM generate_series(
+SELECT ts::timestamp FROM generate_series(
 	date_trunc('day', now()::timestamp) - INTERVAL '1 year',
     now()::timestamp,
     INTERVAL '1 minute'
-   ) as ts ON CONFLICT(created) DO NOTHING
+) AS ts
 `
 
-// gen_random_uuid generates a UUIDv4
-func (q *Queries) GenerateUUIDv4(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, generateUUIDv4)
-	return err
+// casting resolves computation requirement
+// https://github.com/sqlc-dev/sqlc/issues/1995
+func (q *Queries) GenerateSeries(ctx context.Context) ([]pgtype.Timestamp, error) {
+	rows, err := q.db.Query(ctx, generateSeries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.Timestamp
+	for rows.Next() {
+		var ts pgtype.Timestamp
+		if err := rows.Scan(&ts); err != nil {
+			return nil, err
+		}
+		items = append(items, ts)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
