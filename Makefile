@@ -31,8 +31,9 @@ install:
 	go install github.com/pressly/goose/v3/cmd/goose@latest
 
 ## lint: Lint with golangci-lint
-lint:
-	docker run --rm -v $$(pwd):/repo -w /repo golangci/golangci-lint:${GOLANGCI_LINT_VERSION} golangci-lint run --verbose --color always ./...
+lint: tidy
+	go mod vendor
+	golangci-lint run --color always --verbose --print-resources-usage ./...
 
 ## fmt: Format with gofmt
 fmt:
@@ -40,10 +41,16 @@ fmt:
 
 # tidy: Tidy with go mod tidy
 tidy:
+	go clean -modcache
 	go mod tidy
 
-## pre-commit: Chain lint + test + scan
-pre-commit: test lint vuln
+## pre-commit: Chain lint + test
+pre-commit: lint test
+
+## sqlc: Generate sqlc schema
+sqlc: clean
+	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+	sqlc generate
 
 ## run: go run main.go
 run:

@@ -20,14 +20,15 @@ Normally I'd prefer the default [google/uuid](https://pkg.go.dev/github.com/goog
 
 ## Setup
 
-- golang 1.21.3
-- postgres 15.4
+- golang 1.21.x
+- postgres 15.x
 - gnu make for build tooling
 - goose for schema migrations
 - sqlc for SQL DDL
 
 `SELECT version();`
-`PostgreSQL 15.4, compiled by Visual C++ build 1914, 64-bit`
+
+> PostgreSQL 15.4, compiled by Visual C++ build 1914, 64-bit
 
 ### Bootstrap SQL DDL
 
