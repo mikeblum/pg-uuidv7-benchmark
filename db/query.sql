@@ -37,6 +37,6 @@ SELECT ts::timestamp FROM generate_series(
 
 -- name: InsertUUIDResult :batchone
 
-INSERT INTO uuid_result(id, version, insert_duration_ms, lookup_duration_ms)
+INSERT INTO uuid_result(id, version, insert_duration_ns, lookup_duration_ns)
 VALUES($1, $2, $3, $4)
 RETURNING id;

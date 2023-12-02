@@ -53,7 +53,7 @@ sqlc: clean
 	sqlc generate
 
 ## run: go run main.go
-run:
+run: sqlc
 	go run main.go
 
 ## test: Test with go test

@@ -2,8 +2,8 @@
 CREATE TABLE IF NOT EXISTS uuid_result (
     id UUID PRIMARY KEY NOT NULL,
     version SMALLINT NOT NULL,
-    insert_duration_ms BIGINT,
-    lookup_duration_ms BIGINT
+    insert_duration_ns BIGINT,
+    lookup_duration_ns BIGINT
 );
 
 CREATE INDEX IF NOT EXISTS idx_uuid_result_id ON uuid_result (id);

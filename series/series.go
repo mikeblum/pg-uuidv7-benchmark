@@ -149,12 +149,12 @@ func (s *Series) MergeUUIDResult(uuid UUID) error {
 		{
 			ID:      uuid.ID,
 			Version: int16(uuid.Version),
-			InsertDurationMs: pgtype.Int8{
-				Int64: uuid.Insert.Microseconds(),
+			InsertDurationNs: pgtype.Int8{
+				Int64: uuid.Insert.Nanoseconds(),
 				Valid: true,
 			},
-			LookupDurationMs: pgtype.Int8{
-				Int64: uuid.Lookup.Microseconds(),
+			LookupDurationNs: pgtype.Int8{
+				Int64: uuid.Lookup.Nanoseconds(),
 				Valid: true,
 			},
 		},
