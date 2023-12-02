@@ -12,8 +12,12 @@ import (
 	dbms "github.com/mikeblum/pg-uuidv7/internal/db"
 )
 
+type IndexType int
+
 const (
-	attrError = "error"
+	attrError           = "error"
+	BTREE     IndexType = 0
+	BRIN      IndexType = 1
 )
 
 type Series struct {
@@ -69,7 +73,7 @@ func (s *Series) InsertUUIDv4Bulk() (chan UUID, error) {
 			Version: uuid.V4,
 			Insert:  end,
 		}
-		s.Logger.Info("InsertUUIDv4Bulk", "uuid", UUIDString(id), "version", uuid.V4, "time", end)
+		s.Logger.Debug("InsertUUIDv4Bulk", "uuid", UUIDString(id), "version", uuid.V4, "time", end)
 		start = time.Now()
 		if i >= len(batch)-1 {
 			close(out)
@@ -86,7 +90,7 @@ func (s *Series) GetUUIDv4(id pgtype.UUID) (time.Duration, error) {
 		return 0, err
 	}
 	end := time.Since(start)
-	s.Logger.Info("GetUUIDv4", "uuid", UUIDString(id), "version", uuid.V4, "time", end)
+	s.Logger.Debug("GetUUIDv4", "uuid", UUIDString(id), "version", uuid.V4, "time", end)
 	return end, err
 }
 
@@ -101,6 +105,10 @@ func (s *Series) InsertUUIDv7Bulk() (chan UUID, error) {
 		}
 		batch[i] = dbms.InsertUUIDv7BulkParams{
 			ID: pgtype.UUID{
+				Bytes: [16]byte(idv7.Bytes()),
+				Valid: true,
+			},
+			IDBrin: pgtype.UUID{
 				Bytes: [16]byte(idv7.Bytes()),
 				Valid: true,
 			},
@@ -132,22 +140,35 @@ func (s *Series) InsertUUIDv7Bulk() (chan UUID, error) {
 func (s *Series) GetUUIDv7(id pgtype.UUID) (time.Duration, error) {
 	var err error
 	start := time.Now()
-	if _, err = s.Query.GetUUIDv7(context.Background(), id); err != nil {
+	if _, err = s.Query.GetUUIDv7(context.TODO(), id); err != nil {
 		s.Logger.Error("GetUUIDv7", "uuid", UUIDString(id), "err", err)
 		return 0, err
 	}
 	end := time.Since(start)
-	s.Logger.Info("GetUUIDv7", "uuid", UUIDString(id), "version", uuid.V7, "time", end)
+	s.Logger.Debug("GetUUIDv7", "uuid", UUIDString(id), "version", uuid.V7, "time", end)
+	return end, err
+}
+
+func (s *Series) GetUUIDv7BRIN(id pgtype.UUID) (time.Duration, error) {
+	var err error
+	start := time.Now()
+	if _, err = s.Query.GetUUIDv7BRIN(context.TODO(), id); err != nil {
+		s.Logger.Error("GetUUIDv7", "uuid", UUIDString(id), "err", err)
+		return 0, err
+	}
+	end := time.Since(start)
+	s.Logger.Debug("GetUUIDv7BRIN", "uuid", UUIDString(id), "version", uuid.V7, "time", end)
 	return end, err
 }
 
 // sqlc doesn't support MERGE queries:
 // https://github.com/sqlc-dev/sqlc/issues/1661
-func (s *Series) MergeUUIDResult(uuid UUID) error {
+func (s *Series) MergeUUIDResult(uuid UUID, index IndexType) error {
 	var err error
 	results := s.Query.InsertUUIDResult(context.Background(), []dbms.InsertUUIDResultParams{
 		{
 			ID:      uuid.ID,
+			IDIdx:   IndexTypeString(index),
 			Version: int16(uuid.Version),
 			InsertDurationNs: pgtype.Int8{
 				Int64: uuid.Insert.Nanoseconds(),
@@ -165,10 +186,21 @@ func (s *Series) MergeUUIDResult(uuid UUID) error {
 			return
 		}
 	})
-	s.Logger.Info("MergeUUIDResult", "uuid", UUIDString(uuid.ID), "version", uuid.Version, "insert", uuid.Insert, "lookup", uuid.Lookup)
+	s.Logger.Debug("MergeUUIDResult", "uuid", UUIDString(uuid.ID), "version", uuid.Version, "insert", uuid.Insert, "lookup", uuid.Lookup)
 	return err
 }
 
 func UUIDString(id pgtype.UUID) string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", id.Bytes[0:4], id.Bytes[4:6], id.Bytes[6:8], id.Bytes[8:10], id.Bytes[10:16])
+}
+
+func IndexTypeString(indexType IndexType) string {
+	switch indexType {
+	case BTREE:
+		return "BTREE"
+	case BRIN:
+		return "BRIN"
+	default:
+		return ""
+	}
 }

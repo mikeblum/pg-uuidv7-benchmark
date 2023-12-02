@@ -10,6 +10,7 @@ import (
 
 type UuidResult struct {
 	ID               pgtype.UUID
+	IDIdx            string
 	Version          int16
 	InsertDurationNs pgtype.Int8
 	LookupDurationNs pgtype.Int8
@@ -22,5 +23,6 @@ type UuidV4 struct {
 
 type UuidV7 struct {
 	ID      pgtype.UUID
+	IDBrin  pgtype.UUID
 	Created pgtype.Timestamp
 }

@@ -69,15 +69,29 @@ func main() {
 		logger.Error("Error generating UUIDv4 series", attrError, err)
 		os.Exit(1)
 	}
-	logger.Info("Waiting for UUIDv4s...")
+	logger.Info("Vacuuming UUIDv4s...")
+	// sqlc doesn't appear to support `VACUUUM`
+	var vacuumResult *sql.Rows
+	if vacuumResult, err = db.Query("VACUUM ( analyze true, index_cleanup true, verbose true ) uuid_v4;"); err != nil {
+		logger.Error("Error vacuuming uuid_v4", attrError, err)
+		os.Exit(1)
+	}
+	for vacuumResult.Next() {
+		var analysis *string
+		if err = vacuumResult.Scan(&analysis); err != nil {
+			logger.Error("Error analyzing vacuum", attrError, err)
+			os.Exit(1)
+		}
+		logger.Info(*analysis)
+	}
 	logger.Info("Fetching UUIDv4s...")
 	for uuid := range out {
-		logger.Info("UUIDv4", "id", series.UUIDString(uuid.ID))
+		logger.Debug("UUIDv4", "id", series.UUIDString(uuid.ID))
 		if uuid.Lookup, err = v4.GetUUIDv4(uuid.ID); err != nil {
 			logger.Error("Error getting UUIDv4", "id", series.UUIDString(uuid.ID), attrError, err)
 			continue
 		}
-		if err = v4.MergeUUIDResult(uuid); err != nil {
+		if err = v4.MergeUUIDResult(uuid, series.BTREE); err != nil {
 			logger.Error("Error merging UUIDv4 result", attrError, err)
 			continue
 		}
@@ -97,15 +111,37 @@ func main() {
 		logger.Error("Error generating UUIDv7 series", attrError, err)
 		os.Exit(1)
 	}
-	logger.Info("Waiting for UUIDv7s...")
+	logger.Info("Vacuuming UUIDv7s...")
+	// sqlc doesn't appear to support `VACUUUM`
+	if vacuumResult, err = db.Query("VACUUM ( analyze true, index_cleanup true, verbose true ) uuid_v7;"); err != nil {
+		logger.Error("Error vacuuming uuid_v7", attrError, err)
+		os.Exit(1)
+	}
+	for vacuumResult.Next() {
+		var analysis *string
+		if err = vacuumResult.Scan(&analysis); err != nil {
+			logger.Error("Error analyzing vacuum", attrError, err)
+			os.Exit(1)
+		}
+		logger.Info(*analysis)
+	}
 	logger.Info("Fetching UUIDv7s...")
 	for uuid := range out {
-		logger.Info("UUIDv7", "id", series.UUIDString(uuid.ID))
+		logger.Debug("UUIDv7", "id", series.UUIDString(uuid.ID))
 		if uuid.Lookup, err = v7.GetUUIDv7(uuid.ID); err != nil {
-			logger.Error("Error getting UUIDv7", "id", series.UUIDString(uuid.ID), attrError, err)
+			logger.Error("Error getting UUIDv7 BTree", "id", series.UUIDString(uuid.ID), attrError, err)
 			continue
 		}
-		if err = v7.MergeUUIDResult(uuid); err != nil {
+		if err = v7.MergeUUIDResult(uuid, series.BTREE); err != nil {
+			logger.Error("Error merging UUIDv7 result", attrError, err)
+			continue
+		}
+		logger.Debug("UUIDv7", "id", series.UUIDString(uuid.ID))
+		if uuid.Lookup, err = v7.GetUUIDv7BRIN(uuid.ID); err != nil {
+			logger.Error("Error getting UUIDv7 BRIN", "id", series.UUIDString(uuid.ID), attrError, err)
+			continue
+		}
+		if err = v7.MergeUUIDResult(uuid, series.BRIN); err != nil {
 			logger.Error("Error merging UUIDv7 result", attrError, err)
 			continue
 		}

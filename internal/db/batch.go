@@ -19,8 +19,8 @@ var (
 
 const insertUUIDResult = `-- name: InsertUUIDResult :batchone
 
-INSERT INTO uuid_result(id, version, insert_duration_ns, lookup_duration_ns)
-VALUES($1, $2, $3, $4)
+INSERT INTO uuid_result(id, id_idx, version, insert_duration_ns, lookup_duration_ns)
+VALUES($1, $2, $3, $4, $5)
 RETURNING id
 `
 
@@ -32,6 +32,7 @@ type InsertUUIDResultBatchResults struct {
 
 type InsertUUIDResultParams struct {
 	ID               pgtype.UUID
+	IDIdx            string
 	Version          int16
 	InsertDurationNs pgtype.Int8
 	LookupDurationNs pgtype.Int8
@@ -42,6 +43,7 @@ func (q *Queries) InsertUUIDResult(ctx context.Context, arg []InsertUUIDResultPa
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
+			a.IDIdx,
 			a.Version,
 			a.InsertDurationNs,
 			a.LookupDurationNs,
@@ -131,8 +133,8 @@ func (b *InsertUUIDv4BulkBatchResults) Close() error {
 
 const insertUUIDv7Bulk = `-- name: InsertUUIDv7Bulk :batchone
 
-INSERT INTO uuid_v7(id, created)
-VALUES($1, $2)
+INSERT INTO uuid_v7(id, id_brin, created)
+VALUES($1, $2, $3)
 RETURNING id
 `
 
@@ -144,6 +146,7 @@ type InsertUUIDv7BulkBatchResults struct {
 
 type InsertUUIDv7BulkParams struct {
 	ID      pgtype.UUID
+	IDBrin  pgtype.UUID
 	Created pgtype.Timestamp
 }
 
@@ -152,6 +155,7 @@ func (q *Queries) InsertUUIDv7Bulk(ctx context.Context, arg []InsertUUIDv7BulkPa
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
+			a.IDBrin,
 			a.Created,
 		}
 		batch.Queue(insertUUIDv7Bulk, vals...)

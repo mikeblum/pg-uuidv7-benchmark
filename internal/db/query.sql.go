@@ -14,7 +14,7 @@ import (
 const generateSeries = `-- name: GenerateSeries :many
 
 SELECT ts::timestamp FROM generate_series(
-	date_trunc('day', now()::timestamp) - INTERVAL '1 day',
+	date_trunc('day', now()::timestamp) - INTERVAL '1 month',
     now()::timestamp,
     INTERVAL '1 minute'
 ) AS ts
@@ -54,13 +54,24 @@ func (q *Queries) GetUUIDv4(ctx context.Context, id pgtype.UUID) (UuidV4, error)
 }
 
 const getUUIDv7 = `-- name: GetUUIDv7 :one
-SELECT id, created FROM uuid_v7 WHERE id = $1 LIMIT 1
+SELECT id, id_brin, created FROM uuid_v7 WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUUIDv7(ctx context.Context, id pgtype.UUID) (UuidV7, error) {
 	row := q.db.QueryRow(ctx, getUUIDv7, id)
 	var i UuidV7
-	err := row.Scan(&i.ID, &i.Created)
+	err := row.Scan(&i.ID, &i.IDBrin, &i.Created)
+	return i, err
+}
+
+const getUUIDv7BRIN = `-- name: GetUUIDv7BRIN :one
+SELECT id, id_brin, created FROM uuid_v7 WHERE id_brin = $1 LIMIT 1
+`
+
+func (q *Queries) GetUUIDv7BRIN(ctx context.Context, idBrin pgtype.UUID) (UuidV7, error) {
+	row := q.db.QueryRow(ctx, getUUIDv7BRIN, idBrin)
+	var i UuidV7
+	err := row.Scan(&i.ID, &i.IDBrin, &i.Created)
 	return i, err
 }
 
