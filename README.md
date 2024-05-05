@@ -38,7 +38,7 @@ make build
 
 ### Bootstrap Postgres Schema
 
-Execute as the `postgres` user":
+Execute as the `postgres` user:
 
 ```
 CREATE USER app WITH PASSWORD '????';
